@@ -1,0 +1,59 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "role": { "type": "string", "enum": ["student", "admin"] }
+      },
+      "required": ["uid", "email"]
+    },
+    "Thesis": {
+      "title": "Thesis",
+      "description": "Student thesis/graduation project information",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "studentId": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "grade": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "review", "completed"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["studentId", "title", "status"]
+    },
+    "Grade": {
+      "title": "Grade",
+      "description": "Student subject grades",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "studentId": { "type": "string" },
+        "subject": { "type": "string" },
+        "score": { "type": "number" },
+        "semester": { "type": "string" }
+      },
+      "required": ["studentId", "subject", "score"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/theses/{thesisId}": {
+      "schema": "Thesis",
+      "description": "Student theses"
+    },
+    "/grades/{gradeId}": {
+      "schema": "Grade",
+      "description": "Student grades"
+    }
+  }
+}

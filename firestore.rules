@@ -1,0 +1,110 @@
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: users
+// Document ID: userId (auth.uid)
+// Fields:
+//   - uid: string (required)
+//   - email: string (required)
+//   - displayName: string
+//   - photoURL: string
+//   - role: string (student, admin)
+//
+// Collection: theses
+// Document ID: thesisId (random)
+// Fields:
+//   - studentId: string (required, auth.uid)
+//   - title: string (required, min 3, max 200)
+//   - description: string (max 2000)
+//   - grade: number (0-20)
+//   - status: string (pending, review, completed)
+//   - createdAt: timestamp
+//
+// Collection: grades
+// Document ID: gradeId (random)
+// Fields:
+//   - studentId: string (required, auth.uid)
+//   - subject: string (required, max 100)
+//   - score: number (required, 0-20)
+//   - semester: string
+//
+// ===============================================================
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isDocOwner() {
+      return isAuthenticated() && request.auth.uid == resource.data.studentId;
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email']) &&
+             data.uid == request.auth.uid &&
+             isValidEmail(data.email) &&
+             data.role in ['student', 'admin'];
+    }
+
+    function isValidThesis(data) {
+      return data.keys().hasAll(['studentId', 'title', 'status']) &&
+             data.studentId == request.auth.uid &&
+             data.title is string && data.title.size() >= 3 && data.title.size() <= 200 &&
+             data.status in ['pending', 'review', 'completed'];
+    }
+
+    function isValidGrade(data) {
+      return data.keys().hasAll(['studentId', 'subject', 'score']) &&
+             data.studentId == request.auth.uid &&
+             data.subject is string && data.subject.size() <= 100 &&
+             data.score is number && data.score >= 0 && data.score <= 20;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+             (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+              request.auth.token.email == "3lilosinjab1987@gmail.com");
+    }
+
+    // ===============================================================
+    // Matches
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if isOwner(userId) && isValidUser(request.resource.data) && request.resource.data.role == resource.data.role;
+      allow update: if isAdmin();
+    }
+
+    match /theses/{thesisId} {
+      allow read: if isAuthenticated() && (resource.data.studentId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && isValidThesis(request.resource.data);
+      allow update: if isAuthenticated() && (isDocOwner() || isAdmin()) && isValidThesis(request.resource.data);
+      allow delete: if isAuthenticated() && (isDocOwner() || isAdmin());
+    }
+
+    match /grades/{gradeId} {
+      allow read: if isAuthenticated() && (resource.data.studentId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && isValidGrade(request.resource.data);
+      allow update: if isAuthenticated() && (isDocOwner() || isAdmin()) && isValidGrade(request.resource.data);
+      allow delete: if isAuthenticated() && (isDocOwner() || isAdmin());
+    }
+  }
+}
